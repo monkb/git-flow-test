@@ -21,8 +21,6 @@ permissions:
 jobs:
   bump_rc_pr:
     runs-on: ubuntu-latest
-    env:
-      SLACK_WEBHOOK_RC_NOTIFY: ${{ secrets.SLACK_WEBHOOK_RC_NOTIFY }}
 
     steps:
       - name: Checkout release
@@ -112,13 +110,3 @@ jobs:
             --head bump/release-${{ steps.calc.outputs.next_version }} \
             --label bump \
             --label rc
-
-      # (옵션) Slack 알림 – 수신 Webhook을 secrets에 저장
-      - name: Slack Notify (optional)
-        if: ${{ env.SLACK_WEBHOOK_RC_NOTIFY != '' }}
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          payload: |
-            { "text": ":rocket: *RC Bump PR Created*\n*Version:* v${{ steps.calc.outputs.next_version }}\n*By:* ${{ github.actor }}\n*Branch:* release" }
-        env:
-          SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_RC_NOTIFY }}
