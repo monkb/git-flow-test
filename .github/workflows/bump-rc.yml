@@ -83,30 +83,22 @@ jobs:
           echo "next_version=$NEXT" >> $GITHUB_OUTPUT
           echo "NEXT=$NEXT" >> $GITHUB_ENV
 
-      - name: Create bump branch and commit
+      - name: Prepare version changes
         run: |
-          BR="bump/release-${NEXT}"
-          git switch -c "$BR"
-
           jq ".version = \"${NEXT}\"" package.json > tmp && mv tmp package.json
           if [ -f package-lock.json ]; then
             jq ".version = \"${NEXT}\"" package-lock.json > tmp && mv tmp package-lock.json
-            git add package.json package-lock.json
-          else
-            git add package.json
           fi
 
-          git commit -m "bump: ${NEXT}"
-          git push -u origin "$BR"
-
       - name: Open PR to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr create \
-            --title "bump: ${{ steps.calc.outputs.next_version }} → release" \
-            --body "자동 생성된 RC bump PR입니다.\n- version: `${{ steps.calc.outputs.next_version }}`" \
-            --base release \
-            --head bump/release-${{ steps.calc.outputs.next_version }} \
-            --label bump \
-            --label rc
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.PR_CREATOR_TOKEN }}
+          commit-message: "bump: ${{ steps.calc.outputs.next_version }}"
+          title: "bump: ${{ steps.calc.outputs.next_version }} → release"
+          body: |
+            자동 생성된 RC bump PR입니다.
+            - version: `${{ steps.calc.outputs.next_version }}`
+          base: release
+          branch: bump/release-${{ steps.calc.outputs.next_version }}
+          labels: bump, rc
