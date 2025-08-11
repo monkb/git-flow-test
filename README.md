@@ -9,6 +9,7 @@
 | develop | 테스트 브랜치 |
 
 ## workflow
+
 - 기능 개발 시 main 브랜치를 base 로 feature 브랜치를 생성합니다.
 - feature 브랜치 개발이 완료되면 release 브랜치로 PR을 생성합니다.
   - 변경 범위에 따라 major-bump, minor-bump, patch-bump 레이블을 추가합니다.
@@ -22,23 +23,29 @@
 - bump PR이 merge 되면 배포 tag가 확정됩니다.
 
 ## 배포
+
 - develop : develop 브랜치에 푸시되면 배포됩니다.
 - QA : rc 태그가 생성되면 배포됩니다. (QA 서버)
 - 상용서버 : 버전 태그가 생성되면 배포됩니다.
 
 ## 왜 이렇게 하나요?
+
 - jira의 상태와 관리하기 위함입니다.
 
 ## trouble shooting
+
 - QA가 2개 이상의 feature를 포함할 때의 버전
 - release의 version과 main의 version의 동기화
 - vercel 은 tag 별 배포가 가능한가?
-- 
+-
 
 ## jira의 workflow와의 연계
+
 - TODO : feature 브랜치 생성되지 않은 상태
 - In progress : feature 브랜치 생성하여 push 된 상태
 - IN PR : release 브랜치로 PR이 생성된 상태
 - IN QA : release 로 PR이 merge 된 상태
 - QA Passed : rc 가 main 으로 promote 된 상태
 - DONE : main 의 tag 가 확정되어 배포된 상태
+
+테스트를 위한 readme 업데이트
