@@ -93,7 +93,6 @@ jobs:
       - name: Open PR to release
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.PR_CREATOR_TOKEN }}
           commit-message: "bump: ${{ steps.calc.outputs.next_version }}"
           title: "bump: ${{ steps.calc.outputs.next_version }} → release"
           body: |
