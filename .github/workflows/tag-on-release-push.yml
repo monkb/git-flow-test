@@ -1,0 +1,38 @@
+name: Tag on release push
+
+on:
+  push:
+    branches: [release]
+
+permissions:
+  contents: write
+
+jobs:
+  tag_if_bumped:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release
+          fetch-depth: 0
+
+      - name: Detect version change in last commit
+        id: detect
+        run: |
+          if git show --name-only --pretty="" | grep -q "^package.json$"; then
+            CHANGED_VERSION=$(git show -U0 -- package.json | grep '"version"' | tail -1 | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+            echo "changed_version=$CHANGED_VERSION" >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create annotated tag
+        if: steps.detect.outputs.changed == 'true'
+        run: |
+          VER="${{ steps.detect.outputs.changed_version }}"
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git tag -a "v${VER}" -m "Release Candidate ${VER}"
+          git push origin "v${VER}"
