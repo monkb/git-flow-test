@@ -12,23 +12,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 릴리스 브랜치 체크아웃
+        uses: actions/checkout@v4
         with:
           ref: release
           fetch-depth: 0
 
-      - name: Detect version change in last commit
+      - name: 마지막 커밋에서 버전 변경 감지
         id: detect
         run: |
-          if git show --name-only --pretty="" | grep -q "^package.json$"; then
-            CHANGED_VERSION=$(git show -U0 -- package.json | grep '"version"' | tail -1 | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+          if git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -qx "package.json"; then
+            CHANGED_VERSION=$(jq -r .version package.json)
             echo "changed_version=$CHANGED_VERSION" >> $GITHUB_OUTPUT
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create annotated tag
+      - name: 주석 태그 생성
         if: steps.detect.outputs.changed == 'true'
         run: |
           VER="${{ steps.detect.outputs.changed_version }}"
