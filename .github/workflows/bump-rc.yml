@@ -1,0 +1,85 @@
+name: Bump Release Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "선택: major / minor / patch (미입력 시 rc만 +1)"
+        required: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release
+
+      - name: Git 설정
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+      - name: 현재 버전을 package.json에서 읽어옵니다.
+        id: read_version
+        run: |
+          CURRENT=$(jq -r .version package.json)
+          echo "current_version=$CURRENT" >> $GITHUB_OUTPUT
+
+      - name: 다음 버전을 계산합니다.
+        id: calc_version
+        env:
+          TYPE: ${{ github.event.inputs.version_type }}
+          CURRENT: ${{ steps.read_version.outputs.current_version }}
+        run: |
+          # CURRENT 예: 1.8.0-rc.2 또는 1.8.0
+          BASE=$(echo "$CURRENT" | sed 's/-rc\..*//')
+          CUR_RC=$(echo "$CURRENT" | grep -oE 'rc\.[0-9]+' | cut -d. -f2 || echo "")
+
+          bump_major() { echo "$BASE" | awk -F. '{print $1+1".0.0"}'; }
+          bump_minor() { echo "$BASE" | awk -F. '{print $1"."$2+1".0"}'; }
+          bump_patch() { echo "$BASE" | awk -F. '{print $1"."$2"."$3+1}'; }
+
+          if [ -z "$TYPE" ]; then
+            # 입력 없음 → rc만 +1
+            if [ -n "$CUR_RC" ]; then
+              RC_NUM=$((CUR_RC+1))
+              NEXT="${BASE}-rc.${RC_NUM}"
+            else
+              # 현재 rc가 아니면 rc.1 시작 (원치 않으면 여기서 실패 처리 가능)
+              NEXT="${BASE}-rc.1"
+            fi
+          else
+            case "$TYPE" in
+              major) NEWBASE=$(bump_major) ;;
+              minor) NEWBASE=$(bump_minor) ;;
+              patch) NEWBASE=$(bump_patch) ;;
+              *) echo "지원하지 않는 version_type: $TYPE"; exit 1 ;;
+            esac
+            NEXT="${NEWBASE}-rc.1"
+          fi
+
+          echo "next_version=$NEXT" >> $GITHUB_OUTPUT
+          echo "Next version: $NEXT"
+
+      - name: package.json / lockfile 업데이트
+        env:
+          NEXT: ${{ steps.calc_version.outputs.next_version }}
+        run: |
+          jq ".version = \"${NEXT}\"" package.json > tmp.json && mv tmp.json package.json
+          if [ -f package-lock.json ]; then
+            jq ".version = \"${NEXT}\"" package-lock.json > tmp.json && mv tmp.json package-lock.json
+            git add package.json package-lock.json
+          else
+            # pnpm/yarn 등 환경 고려
+            git add package.json
+          fi
+          git commit -m "bump: ${NEXT}"
+          git push origin HEAD:release
+
+      - name: 어노테이트 태그 생성
+        env:
+          NEXT: ${{ steps.calc_version.outputs.next_version }}
+        run: |
+          git tag -a "v${NEXT}" -m "Release Candidate ${NEXT}"
+          git push origin "v${NEXT}"
