@@ -11,9 +11,14 @@ permissions:
 
 jobs:
   auto_bump_on_label:
-    if: ${{ github.event.pull_request.merged == true && contains(toJSON(github.event.pull_request.labels), 'need-bump') }}
+    if: >-
+      ${{ github.event.pull_request.merged == true && (
+        contains(toJSON(github.event.pull_request.labels), 'rc-bump') ||
+        contains(toJSON(github.event.pull_request.labels), 'patch-bump') ||
+        contains(toJSON(github.event.pull_request.labels), 'minor-bump') ||
+        contains(toJSON(github.event.pull_request.labels), 'major-bump')
+      ) }}
     runs-on: ubuntu-latest
-
     steps:
       - name: 릴리스 브랜치 체크아웃
         uses: actions/checkout@v4
@@ -27,19 +32,62 @@ jobs:
           CURRENT=$(jq -r .version package.json)
           echo "current_version=$CURRENT" >> $GITHUB_OUTPUT
 
-      - name: 다음 RC 버전 계산
+      - name: 라벨로 bump 타입 결정
+        id: determine
+        env:
+          LABELS_JSON: ${{ toJSON(github.event.pull_request.labels) }}
+        run: |
+          TYPE=""
+          if echo "$LABELS_JSON" | jq -r '.[].name' | grep -qx "major-bump"; then
+            TYPE="major"
+          elif echo "$LABELS_JSON" | jq -r '.[].name' | grep -qx "minor-bump"; then
+            TYPE="minor"
+          elif echo "$LABELS_JSON" | jq -r '.[].name' | grep -qx "patch-bump"; then
+            TYPE="patch"
+          elif echo "$LABELS_JSON" | jq -r '.[].name' | grep -qx "rc-bump"; then
+            TYPE="rc-only"
+          fi
+          echo "type=$TYPE" >> $GITHUB_OUTPUT
+
+      - name: 다음 버전 계산
         id: calc
         env:
+          TYPE: ${{ steps.determine.outputs.type }}
           CURRENT: ${{ steps.read_version.outputs.current_version }}
         run: |
           BASE=$(echo "$CURRENT" | sed 's/-rc\..*//')
           CUR_RC=$(echo "$CURRENT" | grep -oE 'rc\.[0-9]+' | cut -d. -f2 || echo "")
-          if [ -n "$CUR_RC" ]; then
-            RC_NUM=$((CUR_RC+1))
-            NEXT="${BASE}-rc.${RC_NUM}"
-          else
-            NEXT="${BASE}-rc.1"
-          fi
+
+          bump_major() { echo "$BASE" | awk -F. '{print $1+1".0.0"}'; }
+          bump_minor() { echo "$BASE" | awk -F. '{print $1"."$2+1".0"}'; }
+          bump_patch() { echo "$BASE" | awk -F. '{print $1"."$2"."$3+1}'; }
+
+          case "$TYPE" in
+            rc-only)
+              if [ -n "$CUR_RC" ]; then
+                RC_NUM=$((CUR_RC+1))
+                NEXT="${BASE}-rc.${RC_NUM}"
+              else
+                NEXT="${BASE}-rc.1"
+              fi
+              ;;
+            major)
+              NEWBASE=$(bump_major)
+              NEXT="${NEWBASE}-rc.1"
+              ;;
+            minor)
+              NEWBASE=$(bump_minor)
+              NEXT="${NEWBASE}-rc.1"
+              ;;
+            patch)
+              NEWBASE=$(bump_patch)
+              NEXT="${NEWBASE}-rc.1"
+              ;;
+            *)
+              echo "유효한 bump 라벨을 찾지 못했습니다."; exit 1
+              ;;
+          esac
+
           echo "next_version=$NEXT" >> $GITHUB_OUTPUT
 
       - name: 버전 변경 준비
@@ -57,11 +105,10 @@ jobs:
           commit-message: "bump: ${{ steps.calc.outputs.next_version }}"
           title: "bump: ${{ steps.calc.outputs.next_version }} → release"
           body: |
-            need-bump 라벨 기반 자동 생성된 RC bump PR입니다.
+            라벨 기반 자동 생성된 RC bump PR입니다.
+            - type: `${{ steps.determine.outputs.type }}`
             - version: `${{ steps.calc.outputs.next_version }}`
             - from: PR #${{ github.event.pull_request.number }}
           base: release
           branch: bump/release-${{ steps.calc.outputs.next_version }}
           labels: bump, rc
-
-
