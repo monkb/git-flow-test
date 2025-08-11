@@ -1,0 +1,41 @@
+name: Create Promote PR (release -> main)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: release, fetch-depth: 0 }
+
+      - name: Read RC version
+        id: readv
+        run: |
+          RC=$(jq -r .version package.json)                # e.g. 1.8.0-rc.3
+          BASE=$(echo "$RC" | sed 's/-rc\..*$//')          # -> 1.8.0
+          echo "rc=$RC" >> $GITHUB_OUTPUT
+          echo "base=$BASE" >> $GITHUB_OUTPUT
+
+      - name: Open PR release -> main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="promote: ${{ steps.readv.outputs.base }} (from ${{ steps.readv.outputs.rc }})"
+          BODY=$'승격 PR입니다.\n- QA 기준: `${{ steps.readv.outputs.rc }}`\n- 프로덕션 확정 대상: `${{ steps.readv.outputs.base }}`'
+          if gh pr view --base main --head release >/dev/null 2>&1; then
+            echo "Existing PR release -> main found. Skipping create."
+          else
+            gh pr create \
+              --base main \
+              --head release \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --label promote \
+              --label release-train
+          fi
