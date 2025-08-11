@@ -1,4 +1,4 @@
-name: Auto RC Bump PR on release merge (need-bump)
+name: release 브랜치 push 시 rc 버전 bump PR 생성
 
 on:
   pull_request:

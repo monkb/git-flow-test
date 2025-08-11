@@ -1,0 +1,107 @@
+name: 라벨 동기화용 workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      strict_delete:
+        type: boolean
+        description: "정의되지 않은 라벨을 삭제(주의: 기존 라벨 사라짐)"
+        default: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upsert labels with descriptions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // 관리 라벨 정의
+            const labels = [
+              {
+                name: 'major-bump',
+                color: 'D73A4A',
+                description: 'SemVer major 증가. 호환성 깨짐 포함. release 머지 시 base major+1, rc.1로 시작'
+              },
+              {
+                name: 'minor-bump',
+                color: 'FBCA04',
+                description: 'SemVer minor 증가. 하위 호환 유지 신규 기능. release 머지 시 base minor+1, rc.1'
+              },
+              {
+                name: 'patch-bump',
+                color: '0E8A16',
+                description: 'SemVer patch 증가. 버그 수정/미세 개선. release 머지 시 patch+1, rc.1'
+              },
+              {
+                name: 'rc-bump',
+                color: '1D76DB',
+                description: 'QA 진행 중 RC 번호만 증가. base 버전 유지, rc.n → rc.(n+1)'
+              },
+              {
+                name: 'bump',
+                color: '6A737D',
+                description: '자동 생성된 버전 bump PR 식별용 메타 라벨'
+              },
+              {
+                name: 'rc',
+                color: '6A737D',
+                description: 'RC 관련 작업/PR 식별용 메타 라벨'
+              },
+              {
+                name: 'finalize',
+                color: '5319E7',
+                description: 'main에서 -rc 제거 및 최종 태깅을 수행하는 finalize PR 식별'
+              },
+              {
+                name: 'promote',
+                color: 'C5DEF5',
+                description: 'release → main 승격(PR 승격) 식별'
+              },
+              {
+                name: 'release-train',
+                color: 'A2EEEF',
+                description: '릴리스 트레인(묶음 릴리스) 관리용'
+              }
+            ];
+
+            // 생성/갱신
+            for (const l of labels) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: l.name });
+                await github.rest.issues.updateLabel({
+                  owner, repo, name: l.name,
+                  new_name: l.name, color: l.color, description: l.description
+                });
+                core.info(`Updated: ${l.name}`);
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner, repo, name: l.name, color: l.color, description: l.description
+                  });
+                  core.info(`Created: ${l.name}`);
+                } else {
+                  throw e;
+                }
+              }
+            }
+
+            // 옵션: 정의되지 않은 라벨 삭제(주의)
+            const strict = (core.getInput('strict_delete') || 'false').toLowerCase() === 'true';
+            if (strict) {
+              const existing = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
+              const wanted = new Set(labels.map(l => l.name.toLowerCase()));
+              for (const ex of existing) {
+                if (!wanted.has(ex.name.toLowerCase())) {
+                  await github.rest.issues.deleteLabel({ owner, repo, name: ex.name });
+                  core.info(`Deleted: ${ex.name}`);
+                }
+              }
+            }

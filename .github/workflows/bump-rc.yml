@@ -1,4 +1,4 @@
-name: Create RC Bump PR (to release)
+name: release 브랜치 push 시 버전 bump PR 생성
 
 on:
   workflow_dispatch:

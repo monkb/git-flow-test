@@ -1,4 +1,4 @@
-name: Tag on finalize PR merge
+name: finalize PR merge 시 배포용 태그 생성
 
 on:
   pull_request:

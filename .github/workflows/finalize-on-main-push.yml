@@ -1,4 +1,4 @@
-name: Finalize version on main & sync back
+name: main 브랜치 push 시 버전 finalize PR 생성
 
 on:
   push:
