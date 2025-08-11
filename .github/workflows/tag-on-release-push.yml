@@ -1,4 +1,4 @@
-name: Tag on release push
+name: release 브랜치 push 시 배포용 태그 생성
 
 on:
   push:
