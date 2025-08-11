@@ -23,24 +23,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout release
+      - name: 릴리스 브랜치 체크아웃
         uses: actions/checkout@v4
         with:
           ref: release
           fetch-depth: 0
 
-      - name: Configure Git
+      - name: Git 설정
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-      - name: Read current version
+      - name: 현재 버전 읽기
         id: read_version
         run: |
           CURRENT=$(jq -r .version package.json)
           echo "current_version=$CURRENT" >> $GITHUB_OUTPUT
 
-      - name: Calculate next RC version
+      - name: 다음 RC 버전 계산
         id: calc
         env:
           TYPE: ${{ github.event.inputs.version_type }}
@@ -83,14 +83,14 @@ jobs:
           echo "next_version=$NEXT" >> $GITHUB_OUTPUT
           echo "NEXT=$NEXT" >> $GITHUB_ENV
 
-      - name: Prepare version changes
+      - name: 버전 변경 준비
         run: |
           jq ".version = \"${NEXT}\"" package.json > tmp && mv tmp package.json
           if [ -f package-lock.json ]; then
             jq ".version = \"${NEXT}\"" package-lock.json > tmp && mv tmp package-lock.json
           fi
 
-      - name: Open PR to release
+      - name: PR 생성 (release)
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "bump: ${{ steps.calc.outputs.next_version }}"
