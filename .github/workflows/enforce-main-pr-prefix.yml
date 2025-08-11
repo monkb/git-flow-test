@@ -1,0 +1,48 @@
+name: Enforce PR branch prefix to main
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check head branch prefix
+        id: check
+        shell: bash
+        run: |
+          HEAD="${{ github.event.pull_request.head.ref }}"
+          echo "head=$HEAD"
+          if [[ "$HEAD" == "release" || "$HEAD" == finalize/* || "$HEAD" == hotfix/* ]]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Close PR if invalid
+        if: steps.check.outputs.ok == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const head = pr.head.ref;
+            const allowed = ["finalize/", "hotfix/", "release (exact)"];
+            const msg = `main에는 다음 접두어만 허용됩니다: ${allowed.join(', ')}.\n현재 브랜치: \`${head}\`\n사유: 운영 안정성 보호. 기준에 맞춰 브랜치를 재생성한 뒤 다시 PR을 열어주세요.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: msg,
+            });
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              state: 'closed',
+            });
