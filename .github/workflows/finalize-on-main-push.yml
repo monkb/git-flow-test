@@ -28,6 +28,7 @@ jobs:
           else
             echo "is_rc=false" >> $GITHUB_OUTPUT
             echo "final=$CUR" >> $GITHUB_OUTPUT
+          fi
 
       - name: Finalize version commit (strip -rc)
         if: steps.detect.outputs.is_rc == 'true'
