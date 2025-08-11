@@ -1,0 +1,41 @@
+name: Tag on finalize PR merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag_on_finalize:
+    if: ${{ github.event.pull_request.merged == true && contains(toJSON(github.event.pull_request.labels), 'finalize') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Read final version
+        id: readv
+        run: |
+          VER=$(jq -r .version package.json)
+          if [ -z "$VER" ] || [ "$VER" = "null" ]; then
+            echo "버전을 읽지 못했습니다."; exit 1
+          fi
+          echo "ver=$VER" >> $GITHUB_OUTPUT
+
+      - name: Create prod tag if not exists
+        run: |
+          TAG="v${{ steps.readv.outputs.ver }}"
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}$"; then
+            echo "Tag ${TAG} already exists. Skipping."
+          else
+            git tag -a "${TAG}" -m "Release ${TAG}"
+            git push origin "${TAG}"
+          fi

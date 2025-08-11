@@ -22,7 +22,7 @@ jobs:
           CUR=$(jq -r .version package.json || echo "")
           echo "cur=$CUR" >> $GITHUB_OUTPUT
           if [[ "$CUR" =~ -rc\.[0-9]+$ ]]; then
-            BASE=${CUR%%-rc.*}         # strip -rc.N
+            BASE=${CUR%%-rc.*}
             echo "is_rc=true" >> $GITHUB_OUTPUT
             echo "final=$BASE" >> $GITHUB_OUTPUT
           else
@@ -30,10 +30,18 @@ jobs:
             echo "final=$CUR" >> $GITHUB_OUTPUT
           fi
 
-      - name: Finalize version commit (strip -rc)
+      - name: Create finalize PR branch and open PR
         if: steps.detect.outputs.is_rc == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           FINAL="${{ steps.detect.outputs.final }}"
+          BR="finalize/v${FINAL}"
+
+          # 브랜치 생성
+          git checkout -b "$BR"
+
+          # 버전 strip(-rc)
           jq ".version = \"${FINAL}\"" package.json > tmp && mv tmp package.json
           if [ -f package-lock.json ]; then
             jq ".version = \"${FINAL}\"" package-lock.json > tmp && mv tmp package-lock.json
@@ -41,29 +49,22 @@ jobs:
           else
             git add package.json
           fi
-          git -c user.name="github-actions" -c user.email="actions@github.com" \
-            commit -m "set: ${FINAL}"
-          git push origin HEAD:main
 
-      - name: Create prod tag & (optional) GitHub Release
-        run: |
-          FINAL="${{ steps.detect.outputs.final }}"
-          git tag -a "v${FINAL}" -m "Release v${FINAL}"
-          git push origin "v${FINAL}"
-        # (옵션) release-drafter/changesets 연계 가능
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -m "finalize: v${FINAL}"
+          git push origin "$BR"
 
-      - name: Open sync PR main -> release (single shot)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # 이미 동일한 PR이 열려 있으면 스킵
-          if gh pr view --base release --head main >/dev/null 2>&1; then
-            echo "Existing PR main -> release found. Skipping create."
+          # 기존 PR 있으면 skip
+          if gh pr view --base main --head "$BR" >/dev/null 2>&1; then
+            echo "Existing finalize PR found. Skipping create."
           else
+            TITLE="finalize: v${FINAL}"
+            BODY=$'main 보호 설정으로 인한 finalize PR입니다.\n- 최종 버전: '"v${FINAL}"$'\n- 작업: rc 스트립'
             gh pr create \
-              --base release \
-              --head main \
-              --title "sync: main -> release (v${{ steps.detect.outputs.final }})" \
-              --body "배포 직후 동기화 PR입니다. 머지 후 다음 RC를 준비하세요." \
-              --label sync
+              --base main \
+              --head "$BR" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --label finalize
           fi
+
+      # 기존 'sync PR'은 필요 시 유지/조정
