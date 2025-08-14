@@ -1,6 +1,6 @@
 {
   "name": "git-flow-test",
-  "version": "0.1.1-rc.1",
+  "version": "0.1.1",
   "description": "git 브랜치 전략 테스트",
   "main": "index.js",
   "scripts": {
