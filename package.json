@@ -1,7 +1,7 @@
 {
-  "name": "git-flow-test",
+  "name": "frontend-git-flow",
   "version": "0.1.1",
-  "description": "git 브랜치 전략 테스트",
+  "description": "프론트엔드 깃 플로우 테스트",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -13,7 +13,7 @@
   "author": "monkbangg@gmail.com",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/monkb/git-flow-test/issues"
+    "url": "https://github.com/almSmartDoctor/frontend-git-flow/issues"
   },
-  "homepage": "https://github.com/monkb/git-flow-test#readme"
+  "homepage": "https://github.com/almSmartDoctor/frontend-git-flow#readme"
 }
