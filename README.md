@@ -68,3 +68,4 @@
 - IN QA : release 로 PR이 merge 된 상태
 - QA Passed : rc 가 main 으로 promote 된 상태
 - DONE : main 의 tag 가 확정되어 배포된 상태
+chore
